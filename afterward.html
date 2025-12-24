@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Afterward | System Locked</title>
+    <!-- Tailwind CSS (Layout) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: VT323 for retro terminal look -->
+    <link href="https://fonts.googleapis.com/css2?family=VT323&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/TextPlugin.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #00ff41; /* Terminal Green */
+            --secondary: #003b00; /* Dark Green */
+            --alert: #ff0055; /* Error Red */
+            --bg: #050505;
+            --scanline: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+            font-family: 'VT323', monospace;
+            overflow: hidden;
+            height: 100vh;
+            margin: 0;
+            cursor: crosshair;
+        }
+
+        /* --- Retro Effects --- */
+        .crt-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(255, 255, 255, 0) 50%,
+                rgba(0, 0, 0, 0.2) 50%,
+                rgba(0, 0, 0, 0.2)
+            );
+            background-size: 100% 4px;
+            z-index: 50;
+            pointer-events: none;
+            animation: scrollScanlines 10s linear infinite;
+        }
+
+        .crt-vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,1) 100%);
+            z-index: 51;
+            pointer-events: none;
+        }
+
+        @keyframes scrollScanlines {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 100%; }
+        }
+
+        .glow-text {
+            text-shadow: 0 0 5px var(--primary), 0 0 10px var(--primary);
+        }
+        
+        .glow-border {
+            box-shadow: 0 0 10px var(--primary), inset 0 0 10px var(--primary);
+        }
+
+        .glitch-wrapper {
+            position: relative;
+        }
+
+        .glitch-wrapper::before,
+        .glitch-wrapper::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch-wrapper::before {
+            left: 2px;
+            text-shadow: -1px 0 #ff00c1;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+
+        .glitch-wrapper::after {
+            left: -2px;
+            text-shadow: -1px 0 #00fff9;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { clip: rect(10px, 9999px, 30px, 0); }
+            20% { clip: rect(80px, 9999px, 100px, 0); }
+            40% { clip: rect(10px, 9999px, 50px, 0); }
+            60% { clip: rect(60px, 9999px, 80px, 0); }
+            80% { clip: rect(20px, 9999px, 70px, 0); }
+            100% { clip: rect(90px, 9999px, 95px, 0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip: rect(60px, 9999px, 80px, 0); }
+            20% { clip: rect(10px, 9999px, 30px, 0); }
+            40% { clip: rect(90px, 9999px, 95px, 0); }
+            60% { clip: rect(10px, 9999px, 50px, 0); }
+            80% { clip: rect(40px, 9999px, 60px, 0); }
+            100% { clip: rect(20px, 9999px, 70px, 0); }
+        }
+
+        /* --- Input Styling --- */
+        input::placeholder {
+            color: rgba(0, 255, 65, 0.3);
+        }
+        
+        /* --- Console Screen --- */
+        #console-screen {
+            display: none;
+            overflow: hidden;
+            font-size: 14px;
+            line-height: 1.2;
+            opacity: 0.8;
+            padding: 2rem;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 40;
+            background-color: var(--bg);
+        }
+        
+        .log-line {
+            margin-bottom: 2px;
+            white-space: nowrap;
+        }
+
+        /* --- Main Content --- */
+        #content-screen {
+            display: none;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center relative">
+
+    <!-- Screen Effects -->
+    <div class="crt-overlay"></div>
+    <div class="crt-vignette"></div>
+
+    <!-- 1. LOCKED SCREEN -->
+    <div id="locked-screen" class="relative z-10 w-full max-w-2xl p-8 border-2 border-[#00ff41] bg-black bg-opacity-90 glow-border mx-4">
+        <div class="flex justify-between items-center border-b border-[#00ff41] pb-2 mb-6">
+            <span class="text-xl tracking-widest">SYSTEM: LOCKED</span>
+            <div class="flex gap-2">
+                <div class="w-3 h-3 bg-[#00ff41] rounded-full animate-pulse"></div>
+                <div class="w-3 h-3 bg-[#003b00] rounded-full"></div>
+                <div class="w-3 h-3 bg-[#003b00] rounded-full"></div>
+            </div>
+        </div>
+
+        <div class="text-center space-y-8">
+            <h1 class="text-6xl md:text-8xl font-bold glitch-wrapper tracking-tighter" data-text="AFTERWARD">
+                AFTERWARD
+            </h1>
+            
+            <div class="space-y-2">
+                <p class="text-sm opacity-70">TARGET DATE: 2026-01-03</p>
+                <div id="countdown" class="text-4xl md:text-5xl font-mono glow-text py-4 border-y border-dashed border-[#003b00]">
+                    00d 00h 00m 00s
+                </div>
+            </div>
+
+            <div class="pt-6 relative">
+                <p class="text-xs mb-2 text-left opacity-70">> ENTER OVERRIDE CODE:</p>
+                <div class="flex gap-0">
+                    <span class="flex items-center justify-center px-3 bg-[#00ff41] text-black font-bold">></span>
+                    <input type="password" id="pass-input" class="flex-1 bg-transparent border border-[#00ff41] p-3 text-xl focus:outline-none focus:bg-[#001100] text-[#00ff41] font-mono tracking-widest uppercase" placeholder="PASSWORD..." autocomplete="off">
+                    <button id="submit-btn" class="bg-[#00ff41] text-black px-6 hover:bg-white hover:text-black transition-colors font-bold tracking-wider">
+                        EXECUTE
+                    </button>
+                </div>
+                <p id="error-msg" class="text-[--alert] text-sm mt-2 h-5 opacity-0 text-left">> ACCESS DENIED: INVALID CREDENTIALS</p>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-[10px] opacity-40 text-center">
+            SECURE PROTOCOL V.1.0.00 // UNAUTHORIZED ACCESS IS PROHIBITED
+        </div>
+    </div>
+
+    <!-- 2. CONSOLE SCREEN (Transitions) -->
+    <div id="console-screen" class="font-mono text-[#00ff41]">
+        <!-- Logs will be injected here JS -->
+    </div>
+
+    <!-- 3. CONTENT SCREEN (Afterward) -->
+    <div id="content-screen" class="relative z-30 container mx-auto px-4 h-full flex flex-col justify-center items-center text-center">
+        <h2 class="text-4xl md:text-6xl mb-8 glow-text tracking-[0.2em] font-light border-b border-[#00ff41] pb-4">
+            AFTERWARD
+        </h2>
+        <div class="text-xl md:text-2xl font-['Noto_Sans_JP'] tracking-wide leading-loose max-w-2xl space-y-6">
+            <p id="final-message" class="opacity-0 translate-y-4">
+                <a link href="end.html" class="underline hover:text-white transition-colors">???????</a><br><br>
+                あの時から、数カ月がたった。思い返してみれば本当に散々な記録ばかりだ。最後に、後日談をここに書くことにする。<br>
+            </p>
+            <p id="final-sub" class="text-sm font-mono opacity-0 text-[#00ff41]/60 mt-12">
+                > SESSION TERMINATED.
+            </p>
+        </div>
+        
+        <div class="absolute bottom-8 left-0 w-full text-center text-xs opacity-30">
+            © 2026 ARCHIVE
+        </div>
+    </div>
+
+    <script>
+        gsap.registerPlugin(TextPlugin);
+
+        // --- Config ---
+        const TARGET_DATE = new Date("2026-01-03T00:00:00").getTime();
+        const CORRECT_PASSWORD = "8479838590857573807690726976807769"; // パスワード
+        const DEBUG_MODE = false; // Set true to bypass countdown immediately
+
+        // --- Elements ---
+        const countdownEl = document.getElementById('countdown');
+        const passInput = document.getElementById('pass-input');
+        const submitBtn = document.getElementById('submit-btn');
+        const errorMsg = document.getElementById('error-msg');
+        const lockedScreen = document.getElementById('locked-screen');
+        const consoleScreen = document.getElementById('console-screen');
+        const contentScreen = document.getElementById('content-screen');
+
+        // --- Countdown Logic ---
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const distance = TARGET_DATE - now;
+
+            if (distance < 0 || DEBUG_MODE) {
+                // Time passed -> Auto Unlock
+                clearInterval(timerInterval);
+                countdownEl.innerHTML = "SYSTEM READY // UNLOCKED";
+                startUnlockSequence();
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            countdownEl.innerText = 
+                `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
+        }
+
+        const timerInterval = setInterval(updateCountdown, 1000);
+        updateCountdown(); // Initial call
+
+        // --- Password Logic ---
+        function checkPassword() {
+            const val = passInput.value.toLowerCase().trim();
+            if (val === CORRECT_PASSWORD || val === "open") {
+                gsap.to(errorMsg, { opacity: 0 });
+                startUnlockSequence();
+            } else {
+                // Error Animation
+                const tl = gsap.timeline();
+                tl.to(errorMsg, { opacity: 1, duration: 0.1, text: "> ACCESS DENIED: INVALID CREDENTIALS" })
+                  .to(lockedScreen, { x: 10, duration: 0.05, yoyo: true, repeat: 5 }) // Shake
+                  .to(lockedScreen, { x: 0, duration: 0.05 })
+                  .to(passInput, { backgroundColor: "rgba(255,0,85,0.2)", duration: 0.1 })
+                  .to(passInput, { backgroundColor: "transparent", duration: 0.5 });
+            }
+        }
+
+        submitBtn.addEventListener('click', checkPassword);
+        passInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') checkPassword();
+        });
+
+        // --- Unlock Sequence (The "Cool" Part) ---
+        function startUnlockSequence() {
+            // Disable interactions
+            passInput.disabled = true;
+            submitBtn.disabled = true;
+            clearInterval(timerInterval);
+
+            const masterTl = gsap.timeline();
+
+            // 1. Success Effect on Locked Screen
+            masterTl.to(lockedScreen, {
+                scale: 0.95,
+                duration: 0.2,
+                boxShadow: "0 0 50px #00ff41",
+                borderColor: "#fff"
+            })
+            .to(countdownEl, {
+                text: { value: "ACCESS GRANTED", delimiter: "" },
+                duration: 0.5,
+                ease: "none",
+                color: "#fff"
+            })
+            .to(lockedScreen, {
+                opacity: 0,
+                scale: 1.1,
+                filter: "blur(20px)",
+                duration: 0.5,
+                delay: 0.5,
+                display: "none"
+            })
+            .call(runConsoleSequence); // Start Matrix/Console effect
+        }
+
+        // --- Console/Matrix Effect ---
+        function runConsoleSequence() {
+            consoleScreen.style.display = 'block';
+            
+            const logs = [
+                "loading:afterward", "initializing core...", "decrypting memories...", 
+                "bypassing firewall level 5...", "connection established", 
+                "retrieving archive data...", "scanning...", "found: 1 file", 
+                "loading assets...", "optimizing render engine...", 
+                "user_auth: true", "system: online", "rendering world..."
+            ];
+
+            const hexChars = "0123456789ABCDEF";
+            
+            // Create random logs rapidly
+            let lineCount = 0;
+            const maxLines = 50; // Total lines to generate
+            
+            const logInterval = setInterval(() => {
+                const p = document.createElement('p');
+                p.className = 'log-line';
+                
+                // Randomly choose meaningful log or raw hex dump
+                if (Math.random() > 0.7 && logs.length > 0) {
+                    p.innerHTML = `> ${logs.shift()} <span class="animate-pulse">_</span>`;
+                    p.style.color = "#fff";
+                } else {
+                    let hexString = "0x";
+                    for(let i=0; i<32; i++) hexString += hexChars[Math.floor(Math.random() * 16)];
+                    p.innerText = hexString;
+                    p.style.opacity = Math.random();
+                }
+
+                consoleScreen.appendChild(p);
+                consoleScreen.scrollTop = consoleScreen.scrollHeight; // Auto scroll
+
+                lineCount++;
+                if (lineCount > maxLines) {
+                    clearInterval(logInterval);
+                    finishConsoleSequence();
+                }
+            }, 40); // Speed of text generation
+        }
+
+        function finishConsoleSequence() {
+            // Flash white then reveal content
+            const tl = gsap.timeline();
+            
+            tl.to(consoleScreen, {
+                backgroundColor: "#fff",
+                color: "#000",
+                duration: 0.1,
+                delay: 0.5
+            })
+            .to(consoleScreen, {
+                opacity: 0,
+                duration: 1,
+                display: "none"
+            })
+            .call(showContent);
+        }
+
+        // --- Final Content Reveal ---
+        function showContent() {
+            contentScreen.style.display = 'flex';
+            
+            const tl = gsap.timeline();
+            
+            tl.to("#content-screen", { opacity: 1, duration: 1 })
+              .to("h2", { 
+                  text: { value: "AFTERWARD", delimiter: "" }, 
+                  duration: 1.5, 
+                  ease: "power2.out" 
+              })
+              .to("#final-message", {
+                  opacity: 1,
+                  y: 0,
+                  duration: 1.5,
+                  ease: "power3.out",
+                  filter: "blur(0px)"
+              }, "-=1")
+              .to("#final-sub", {
+                  opacity: 1,
+                  duration: 1
+              });
+              
+            // Subtle ambient float animation for content
+            gsap.to("#content-screen", {
+                y: 10,
+                duration: 4,
+                repeat: -1,
+                yoyo: true,
+                ease: "sine.inOut"
+            });
+        }
+
+        // Intro Animation
+        gsap.from(lockedScreen, {
+            y: 50,
+            opacity: 0,
+            duration: 1.5,
+            ease: "power4.out",
+            delay: 0.5
+        });
+
+    </script>
+</body>
+</html>
